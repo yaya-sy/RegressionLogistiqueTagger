@@ -129,7 +129,7 @@ class RegressionLogistique :
                 bons += 1
         return bons / total
 
-    def dgs(self: object, alpha0: float, iterations: float, batch: int) -> defaultdict :
+    def dgs(self: object, alpha0: float, iterations: float) -> defaultdict :
         """
         Fonction qui estime les paramètres grâce à la descente de gradient stochastique
 
@@ -139,25 +139,25 @@ class RegressionLogistique :
             pas de gradient de départ
         - iterations : int
             nombre d'itération sur le corpus d'instances
+        - batch : int
+            taille de batch à considérer
 
         Returns :
         -------
         - w : defaultdict
             les paramètres estimés
         """
-        idx = 0
         rn.shuffle(self.instances)
         w = self.init_parametres()
         alpha = alpha0
         for i in range(iterations) :
-            for features, tag in self.instances[idx : idx + batch] :
+            for features, tag in self.instances :
                 z = sum(self.score(w[y], features) for y in w)
                 for classe in w :
                     p = self.score(w[classe], features) / z # self.probabilite(w, classe, features)
                     grad = {f : alpha * ((int(tag == classe) - p) * features[f]) for f in features}
                     for f in grad :
                         w[classe][f] += grad[f]
-                idx += batch
             alpha = alpha0 / sqrt(i + 1)
             prec = self.precision(self.instances, w)
             print("it : {}, precision sur le train : {}".format(i + 1, prec))
@@ -176,10 +176,9 @@ if __name__ == "__main__":
 
     ftr = get_features(train)
     fte = get_features(test)
-    print(len(ftr) * 15)
 
     classes = set(tag for prase, tags in train for tag in tags)
 
     lr = RegressionLogistique(classes, ftr)
-    w = lr.dgs(0.7, 50, 100)                                         #wo : 0.2, 10 = 0.914, ru : 0.42, 10, fr : 0.42, 40
+    w = lr.dgs(0.5, 20)                                         #wo : 0.2, 10 = 0.914, ru : 0.42, 10, fr : 0.42, 40
     print('précision sur le test : ', lr.precision(fte, w))
