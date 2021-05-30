@@ -1,15 +1,12 @@
-from outils import *
-from collections import Counter, defaultdict
-import pandas as pd
-import numpy as np
+"""Module regression logistique"""
+from collections import defaultdict
 from math import sqrt
-from math import exp, log
-from itertools import chain
+from math import exp
 import random as rn
+from outils import get_features, read_corpus
 
 class RegressionLogistique :
-    """
-    Cette classe implémente la régression logistique multiclasse
+    """Cette classe implémente la régression logistique multiclasse
 
     méthodes :
     --------
@@ -19,8 +16,10 @@ class RegressionLogistique :
         applique la fonction de score linéaire entre deux vecteurs
     - probabilite :
         estime la probabilité qu'un vecteur d'observation soit associé à une classe particulière
-    - classifie : fontion qui classifie un vecteur d'observation à partir d'un ensemble de vecteurs de paramètres
-    - dgs : méthode qui estime les paramètres du modèle en utilisant la méthode d'optimisation numérique de descente de gradient.
+    - classifie : fontion qui classifie un vecteur d'observation à partir \
+    d'un ensemble de vecteurs de paramètres
+    - dgs : méthode qui estime les paramètres du modèle en utilisant \
+    la méthode d'optimisation numérique de descente de gradient.
 
     attributs :
     ---------
@@ -42,17 +41,19 @@ class RegressionLogistique :
         -----------
 
         Returns :
-        - w : defaultdict
+        - parametres : defaultdict
             les paramètres initialisés
         """
-        w = defaultdict(str)
+        parameters = defaultdict(str)
         for classe in self.classes :
-            w[classe] = defaultdict(float)
-        return w
+            parameters[classe] = defaultdict(float)
+        return parameters
 
-    def score(self: object, w_y: dict, features:dict) -> float :
+    #pylint: disable=R0201
+    def score(self: object, w_y: dict, fts: dict) -> float :
         """
-        Fonction qui fait le produit scalaire entre un vecteur de caractéristiques et un vecteur de features
+        Fonction qui fait le produit scalaire entre un vecteur \
+        de caractéristiques et un vecteur de features
 
         Parameters :
         ----------
@@ -66,15 +67,15 @@ class RegressionLogistique :
         - score : float
             score linéaire que les caractéristiques soient dans la classe des paramètres
         """
-        return exp(sum(w_y[c] * features[c] for c in features))
+        return exp(sum(w_y[c] * fts[c] for c in fts))
 
-    def probabilite(self : object, w : defaultdict, classe : str, features: dict) -> float :
+    def probabilite(self : object, parametres : defaultdict, classe : str, fts: dict) -> float :
         """
         Fonction calcule la probabilité qu'une feature appartienne à la classe en paramètre
 
         Parameters :
         ----------
-        - w : l'ensemble des vecteur de paramètres
+        - parametres : l'ensemble des vecteur de paramètres
         - classe : la classe supposée de la features
         - features : caractéristiques d'une instance particulière
 
@@ -83,16 +84,19 @@ class RegressionLogistique :
         probabilite : float:
             la proba de la clase sachant les caractéristiques
         """
-        w[classe] = random.randint(0.01, 0.1) if w[classe] == 0 else w[classe]
-        return self.score(w[classe], features) / sum(self.score(w[y], features) for y in w)
+        parametres[classe] = rn.randint(0.01, 0.1) \
+        if parametres[classe] == 0 else parametres[classe]
+        return self.score(parametres[classe], fts) \
+        / sum(self.score(parametres[y], fts) for y in parametres)
 
-    def classify(self: object, w: defaultdict, features: dict) -> str:
+    def classify(self: object, parametres: defaultdict, fts: dict) -> str:
         """
-        Fonction qui classifie en appliquant la règle de décision : la classe du vecteur qui a le meilleure score est choisi;
+        Fonction qui classifie en appliquant la règle de décision : la classe \
+        du vecteur qui a le meilleure score est choisi;
 
         Parameters :
         ----------
-        - w : defaultdict
+        - parametres : defaultdict
             vecteurs de paramètres
         - features : dict
             caractéristiques d'une instance à classifier
@@ -102,10 +106,10 @@ class RegressionLogistique :
         classe : str
             la classe prédite
         """
-        scores = {label : self.score(w[label], features)  for label in w}
+        scores = {label : self.score(parametres[label], fts) for label in parametres}
         return max((score, label) for label, score in scores.items())[1]
 
-    def precision(self: object, instances: object, w: defaultdict) -> float :
+    def precision(self: object, instances: object, parametres: defaultdict) -> float :
         """
         fonction qui calcule la précision du système sur des instances
 
@@ -113,7 +117,7 @@ class RegressionLogistique :
         ----------
         - instances : dict
             caractéristiques
-        - w : defaultdict
+        - parametres : defaultdict
             paramètres estimées
 
         Returns :
@@ -125,7 +129,7 @@ class RegressionLogistique :
         total = 0.0
         for inst, tag in instances :
             total += 1
-            if self.classify(w, inst) == tag :
+            if self.classify(parametres, inst) == tag :
                 bons += 1
         return bons / total
 
@@ -144,24 +148,25 @@ class RegressionLogistique :
 
         Returns :
         -------
-        - w : defaultdict
+        - parametres : defaultdict
             les paramètres estimés
         """
         rn.shuffle(self.instances)
-        w = self.init_parametres()
+        parametres = self.init_parametres()
         alpha = alpha0
         for i in range(iterations) :
-            for features, tag in self.instances :
-                z = sum(self.score(w[y], features) for y in w)
-                for classe in w :
-                    p = self.score(w[classe], features) / z # self.probabilite(w, classe, features)
-                    grad = {f : alpha * ((int(tag == classe) - p) * features[f]) for f in features}
-                    for f in grad :
-                        w[classe][f] += grad[f]
+            for fts, tag in self.instances :
+                normalisation = sum(self.score(parametres[y], fts) for y in parametres)
+                for classe in parametres :
+                    prob = self.score(parametres[classe], fts) / normalisation
+                    grad = {feat : alpha * ((int(tag == classe) - prob) \
+                    * fts[feat]) for feat in fts}
+                    for feat in grad :
+                        parametres[classe][feat] += grad[feat]
             alpha = alpha0 / sqrt(i + 1)
-            prec = self.precision(self.instances, w)
+            prec = self.precision(self.instances, parametres)
             print("it : {}, precision sur le train : {}".format(i + 1, prec))
-        return w
+        return parametres
 
 if __name__ == "__main__":
     import argparse
@@ -177,8 +182,8 @@ if __name__ == "__main__":
     ftr = get_features(train)
     fte = get_features(test)
 
-    classes = set(tag for prase, tags in train for tag in tags)
+    classes_set = set(tag for prase, tags in train for tag in tags) # classe
 
-    lr = RegressionLogistique(classes, ftr)
-    w = lr.dgs(0.5, 20)                                         #wo : 0.2, 10 = 0.914, ru : 0.42, 10, fr : 0.42, 40
-    print('précision sur le test : ', lr.precision(fte, w))
+    lr = RegressionLogistique(classes_set, ftr)
+    parametres_estimes = lr.dgs(0.5, 20)
+    print('précision sur le test : ', lr.precision(fte, parametres_estimes))
