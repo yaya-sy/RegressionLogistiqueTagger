@@ -1,4 +1,4 @@
-"""Module regression logistique"""
+"""Module qui implémente la modèle de regression logistique multiclasse"""
 from collections import defaultdict
 from math import sqrt
 from math import exp
